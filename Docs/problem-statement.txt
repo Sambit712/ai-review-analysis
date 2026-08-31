@@ -1,0 +1,564 @@
+# Technical Problem Statement — AI Discovery Engine & Data Pipeline
+
+## Objective
+
+Build an AI-powered discovery engine that continuously converts unstructured public user feedback about online beauty shopping into **structured, searchable and quantifiable evidence about user behaviour, purchase blockers and unmet needs**.
+
+The system must help identify **why users wishlist beauty products but do not purchase them**, what they do instead, what information they seek before purchasing, and which recurring problems represent the strongest opportunities for improving wishlist-to-purchase conversion.
+
+The engine must not function as a simple sentiment-analysis or review-summary tool. It must identify **behavioural patterns, decision barriers, user segments and opportunity areas**, while preserving the original evidence behind every insight.
+
+---
+
+## 1. Data Ingestion Pipeline
+
+The system must accept user-feedback data from multiple sources, including:
+
+* Reddit
+* YouTube comments
+* Google Play/App Store reviews
+* Public beauty/shopping communities
+* Product reviews and Q&A
+* Survey responses
+* Interview transcripts/notes
+* Other permitted public sources
+
+Different sources will produce different formats, so the pipeline must first convert them into a **common schema**.
+
+### Standard raw-feedback schema
+
+```text
+record_id
+source
+source_url
+date
+text
+product_category
+metadata
+```
+
+The pipeline should support both:
+
+**batch ingestion** — CSV/XLSX/JSON uploads
+
+and, where permitted:
+
+**automated ingestion** — APIs, feeds or scheduled source connectors.
+
+---
+
+## 2. Data Processing Pipeline
+
+Every incoming record must pass through:
+
+```text
+Source
+↓
+Ingestion
+↓
+Schema Normalization
+↓
+Cleaning
+↓
+Deduplication
+↓
+Language/format normalization
+↓
+Raw Feedback Store
+↓
+AI Analysis
+```
+
+### Cleaning should include:
+
+* Removing empty records
+* Removing obvious spam
+* Normalizing whitespace
+* Standardizing source names
+* Preserving original wording
+* Detecting duplicate or near-duplicate records
+
+The original text must remain unchanged and retrievable.
+
+---
+
+## 3. AI Analysis Pipeline
+
+Each cleaned feedback record is sent to the AI classification layer.
+
+The AI must extract structured behavioural information including:
+
+### Wishlist intent
+
+Examples:
+
+* Genuine purchase intent
+* Bookmarking
+* Comparison
+* Waiting for better value
+* Waiting for the right time
+* Future need
+* Inspiration
+* Uncertainty
+
+### Purchase blocker
+
+Examples:
+
+* Price/value
+* Shade
+* Finish
+* Suitability
+* Quality
+* Reviews/social proof
+* Comparison
+* Alternative found
+* Forgetting
+* Timing/occasion
+* Availability
+* Returns
+* Trust
+* No need
+
+### Information gap
+
+What information does the user still need before purchasing?
+
+Examples:
+
+* Shade confidence
+* Skin-type suitability
+* Product quality
+* Ingredients
+* Finish
+* Longevity
+* Coverage
+* Product performance
+* Value
+* Authenticity
+
+### Comparison behaviour
+
+Identify whether users compare:
+
+* Different brands
+* Similar products
+* Same product across platforms
+* Shades
+* Finishes
+* Prices
+* Sizes
+* Formulations
+
+### External research
+
+Identify whether users go to:
+
+* Google
+* YouTube
+* Instagram
+* Reddit
+* Other marketplaces
+* Offline stores
+* Friends/family
+* Other sources
+
+### Decision trigger
+
+Identify what could move the user toward purchase:
+
+* Better value
+* Better reviews
+* Shade confirmation
+* Product demonstration
+* Suitability confidence
+* Availability
+* Occasion
+* Replenishment
+* Social proof
+
+---
+
+## 4. Structured AI Output
+
+For every feedback record, the system should produce structured output such as:
+
+```json
+{
+  "record_id": "001",
+  "wishlist_intent": "GENUINE_PURCHASE_INTENT",
+  "purchase_blocker": ["SHADE"],
+  "information_gap": ["SHADE_CONFIDENCE"],
+  "comparison_behavior": true,
+  "comparison_type": ["OTHER_BRAND"],
+  "external_research": ["YOUTUBE"],
+  "decision_trigger": ["SHADE_CONFIRMATION"],
+  "category": "FOUNDATION",
+  "confidence": 0.93,
+  "evidence": "I'm not sure which shade will match me."
+}
+```
+
+The AI output must be stored separately from the original feedback.
+
+---
+
+## 5. Evidence & Confidence Layer
+
+Every AI-generated classification must retain:
+
+**Classification → confidence score → supporting evidence → original source**
+
+This allows a researcher to move from:
+
+> **“Shade confidence is a major problem.”**
+
+to:
+
+> **“Here are the specific user statements that produced this finding.”**
+
+Low-confidence classifications should be flagged rather than silently treated as fact.
+
+---
+
+## 6. Behavioural Theme Clustering
+
+After individual records are classified, the system must group related observations into broader behavioural themes.
+
+For example:
+
+```text
+Shade uncertainty
+├── Undertone confusion
+├── Swatch mismatch
+├── Skin-tone uncertainty
+└── Real-world appearance uncertainty
+
+↓
+SHADE CONFIDENCE
+```
+
+Another example:
+
+```text
+Price concerns
+├── Waiting for sale
+├── Better price elsewhere
+├── Offer uncertainty
+└── Value doubts
+
+↓
+VALUE UNCERTAINTY
+```
+
+This converts thousands of individual observations into a manageable set of recurring problems.
+
+---
+
+## 7. Quantification Layer
+
+The system must calculate frequencies from the classified dataset rather than asking the LLM to invent percentages.
+
+Examples:
+
+### Problem frequency
+
+```text
+Number of records mentioning problem
+÷
+Total analyzed records
+```
+
+### Segment frequency
+
+```text
+Records with problem within segment
+÷
+Total records within segment
+```
+
+### Category frequency
+
+```text
+Problem frequency by category
+```
+
+This should allow analysis such as:
+
+> Shade uncertainty among lipstick users
+
+versus:
+
+> Shade uncertainty among foundation users.
+
+---
+
+## 8. Segment Analysis
+
+The engine must identify behavioural differences across available dimensions, such as:
+
+* Product category
+* Shopping frequency
+* Wishlist intent
+* Comparison behaviour
+* Price orientation
+* High-intent vs low-intent users
+
+The system should be able to answer:
+
+> **“Which problems are most common for which users?”**
+
+and not merely:
+
+> **“What are the most common problems overall?”**
+
+---
+
+## 9. Opportunity Identification
+
+The system must convert recurring behavioural problems into candidate opportunity areas.
+
+Each opportunity should contain:
+
+```text
+Opportunity
+Evidence volume
+Affected segment
+Affected category
+Purchase relevance
+Solvability
+Supporting evidence
+```
+
+A configurable prioritization model can be:
+
+$$
+Opportunity\ Score =
+Frequency \times Purchase\ Relevance \times Segment\ Impact \times Solvability
+$$
+
+The scoring framework should be transparent and editable rather than presented as objective truth.
+
+---
+
+## 10. Research Query Layer
+
+The discovery engine should provide a simple interface through which a researcher can ask questions such as:
+
+> “Why do lipstick users abandon wishlisted products?”
+
+> “What do foundation shoppers compare before buying?”
+
+> “What information do beauty shoppers seek outside the platform?”
+
+> “Which blockers are most common among high-intent wishlist users?”
+
+The system should answer using the **central analyzed corpus**, with evidence attached to the response.
+
+---
+
+## 11. Central Data Architecture
+
+The recommended flow is:
+
+```text
+Multiple permitted sources
+          ↓
+     Ingestion Layer
+          ↓
+ Cleaning + Deduplication
+          ↓
+ Central Feedback Database
+          ↓
+     AI Classification
+          ↓
+ Behavioral Data Store
+          ↓
+ Clustering + Quantification
+          ↓
+ Segment Analysis
+          ↓
+ Opportunity Scoring
+          ↓
+ Discovery Dashboard
+```
+
+The central database should therefore contain both:
+
+### Raw layer
+
+What users actually said.
+
+### Enriched layer
+
+What the AI inferred from those statements.
+
+This separation is necessary for traceability and re-analysis.
+
+---
+
+## 12. AI vs Deterministic Responsibilities
+
+The pipeline must deliberately separate tasks.
+
+### AI should handle:
+
+* Semantic understanding
+* Classification
+* Behavioural extraction
+* Evidence identification
+* Theme clustering
+* Natural-language synthesis
+
+### Deterministic code should handle:
+
+* Record counting
+* Deduplication
+* Percentages
+* Aggregations
+* Filtering
+* Sorting
+* Opportunity-score calculations
+* Database operations
+
+This prevents the LLM from generating unsupported quantitative conclusions.
+
+---
+
+## 13. Validation Layer
+
+A sample of AI-classified records should be manually reviewed.
+
+For example:
+
+```text
+100 randomly selected records
+        ↓
+Human classification
+        ↓
+AI classification
+        ↓
+Agreement measurement
+```
+
+The system should calculate appropriate validation metrics such as:
+
+* Accuracy
+* Precision
+* Recall
+* F1
+* Human/AI agreement
+
+The validated model/prompt should then be used for larger-scale processing.
+
+---
+
+## 14. Discovery Dashboard
+
+The final web interface should expose:
+
+### Overview
+
+* Total records
+* Sources
+* Categories
+* Segments
+* Top behavioural themes
+
+### Problem Explorer
+
+* Ranked blockers
+* Frequencies
+* Segment breakdown
+
+### Category Explorer
+
+* Lipstick
+* Foundation
+* Skincare
+* etc.
+
+### Evidence Explorer
+
+* Theme
+* Supporting statements
+* Source
+* Original URL
+
+### Opportunity Explorer
+
+* Opportunity
+* Frequency
+* Purchase relevance
+* Segment impact
+* Solvability
+* Priority score
+
+---
+
+## 15. Pipeline Requirements
+
+The pipeline must be:
+
+**Repeatable** — the same input should produce reproducible structured analysis.
+
+**Scalable** — moving from 50 to thousands of records should not require redesigning the workflow.
+
+**Traceable** — every insight must link to source evidence.
+
+**Extensible** — new sources should be addable without rewriting the classification system.
+
+**Recoverable** — failed AI processing should not lose raw data.
+
+**Inspectable** — researchers should be able to see what the AI classified and why.
+
+---
+
+## 16. Initial MVP Boundary
+
+The first technical version should support:
+
+```text
+CSV/XLSX upload
+        ↓
+Normalization
+        ↓
+Deduplication
+        ↓
+AI classification
+        ↓
+Structured output
+        ↓
+Theme aggregation
+        ↓
+Opportunity ranking
+        ↓
+Interactive dashboard
+```
+
+It does not initially require real-time ingestion from every external platform.
+
+Once the core system works, additional automated source connectors can be added.
+
+---
+
+# Definition of Done
+
+The AI Discovery Engine is complete when a researcher can:
+
+1. Upload a feedback dataset.
+2. Ingest and normalize records from different sources.
+3. Remove duplicates.
+4. Preserve original evidence.
+5. Run AI behavioural classification.
+6. Receive structured outputs with confidence scores.
+7. Cluster recurring themes.
+8. Quantify problem frequency.
+9. Compare categories and segments.
+10. Inspect the evidence behind each insight.
+11. Rank opportunity areas.
+12. Ask natural-language discovery questions and receive evidence-backed answers.
+
+## Core Technical Principle
+
+> **The pipeline should transform unstructured consumer feedback into a continuously searchable, evidence-backed behavioural knowledge base from which product opportunities can be discovered and quantified.**

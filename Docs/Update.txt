@@ -1,0 +1,215 @@
+# Problem Statement — Incremental Review Ingestion & AI Analysis Pipeline
+
+The AI Discovery Engine must be able to **continuously ingest new user reviews and feedback from multiple sources without reprocessing the entire historical dataset**. As new Reddit comments, YouTube comments, app reviews, survey responses, community discussions, and other permitted feedback become available, the system should identify which records are genuinely new, add them to the central feedback database, automatically classify them using the AI behavioural taxonomy, and update the aggregate insights used by the discovery dashboard.
+
+The core technical problem is:
+
+> **How can the system reliably detect, ingest, process and incorporate new feedback while preserving historical analysis, preventing duplicate records, maintaining traceability, and ensuring that opportunity metrics remain current?**
+
+### Required flow
+
+**New source data**
+→ **Ingestion**
+→ **Schema normalization**
+→ **Duplicate detection**
+→ **Store new records**
+→ **AI classification**
+→ **Store AI outputs**
+→ **Recalculate aggregate insights**
+→ **Refresh discovery dashboard**
+
+### 1. Incremental ingestion
+
+The system must accept new data in the same standardized format as the existing database:
+
+* `record_id`
+* `source`
+* `source_url`
+* `published_at`
+* `text`
+* `product_category`
+
+Incoming records may come from different sources and formats, but must be normalized before entering the central database.
+
+### 2. Duplicate detection
+
+Every record must have a stable unique identifier wherever the source provides one.
+
+The pipeline should prevent:
+
+* Exact duplicate reviews
+* Previously processed comments
+* Re-imported survey responses
+* Repeated ingestion of the same source data
+
+Where a stable source ID is unavailable, the system should use a combination of fields such as:
+
+**source + URL + normalized text + date**
+
+to identify likely duplicates.
+
+### 3. Incremental AI processing
+
+Only newly ingested records should be sent to the AI classifier.
+
+For example:
+
+**Existing database: 10,000 records**
+
+**New records: 300**
+
+The system should process:
+
+> **300 new records**
+
+rather than sending all 10,000 records to the model again.
+
+This reduces:
+
+* API cost
+* Processing time
+* Duplicate classification
+* Risk of unnecessarily changing historical classifications
+
+### 4. AI enrichment
+
+For each new record, the AI should populate:
+
+* Wishlist intent
+* Purchase blocker
+* Information gap
+* Comparison behaviour
+* Comparison type
+* External research
+* Decision trigger
+* Product category
+* Confidence score
+* Supporting evidence
+
+The original raw feedback must remain unchanged.
+
+### 5. Processing status
+
+Each record should have a processing state such as:
+
+```text
+NEW
+PROCESSING
+PROCESSED
+FAILED
+REQUIRES_REVIEW
+```
+
+This allows failed or low-confidence records to be identified and reprocessed without affecting the rest of the dataset.
+
+### 6. Version and traceability requirements
+
+The system should preserve:
+
+* Original feedback
+* AI classification
+* AI model/version used
+* Processing timestamp
+* Classification confidence
+* Source URL
+
+This allows the researcher to answer:
+
+> **“When was this insight generated, from which records, and what evidence supports it?”**
+
+### 7. Updating aggregate insights
+
+After new records are successfully classified, the system must update:
+
+* Theme frequency
+* Segment frequency
+* Category-level patterns
+* Source-level patterns
+* Opportunity scores
+
+For example:
+
+**Before update**
+
+10,000 records
+2,000 shade-related
+20% frequency
+
+**After ingestion**
+
+500 new records
+150 shade-related
+
+**Updated**
+
+10,500 records
+2,150 shade-related
+20.48% frequency
+
+The system should calculate these values programmatically rather than asking the LLM to generate them.
+
+### 8. Historical stability
+
+Previously processed records should not automatically change simply because new feedback has arrived.
+
+Historical classifications should only change when:
+
+* A record is explicitly reprocessed
+* The taxonomy changes
+* The AI classification logic is intentionally upgraded
+
+This prevents discovery trends from changing unpredictably.
+
+### 9. Failure recovery
+
+If AI processing fails for a new batch:
+
+* Raw records must still be stored.
+* Failed records must be flagged.
+* Successfully processed records must remain available.
+* The failed records should be retryable without duplicating existing data.
+
+### 10. Final system behaviour
+
+The completed pipeline should behave as:
+
+```text
+          NEW FEEDBACK
+                ↓
+          INGESTION LAYER
+                ↓
+        NORMALIZE + VALIDATE
+                ↓
+          DUPLICATE CHECK
+           ↙           ↘
+       EXISTING        NEW
+          ↓              ↓
+       IGNORE       STORE RAW DATA
+                         ↓
+                    AI CLASSIFIER
+                         ↓
+                  STORE AI OUTPUT
+                         ↓
+                  UPDATE INSIGHTS
+                         ↓
+                 REFRESH DASHBOARD
+```
+
+### Definition of Done
+
+The pipeline is complete when a researcher can introduce a new batch of reviews/comments and the system can automatically:
+
+1. Identify new records.
+2. Reject duplicates.
+3. Preserve raw source data.
+4. Classify only new records.
+5. Store AI classifications separately.
+6. Flag low-confidence or failed records.
+7. Update discovery statistics.
+8. Preserve historical results.
+9. Trace every insight back to source evidence.
+10. Reflect the updated findings in the discovery dashboard.
+
+### Core principle
+
+> **The Discovery Engine must behave as an incremental research system: every new piece of feedback should become new evidence in the knowledge base without requiring the entire historical dataset to be reprocessed.**

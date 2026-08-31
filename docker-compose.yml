@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  nykaa-ai-discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nykaa_ai_discovery_engine
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - DUCKDB_PATH=data/raw_db/feedback.duckdb
+    volumes:
+      - ./data:/app/data
+      - ./Docs:/app/Docs
+    restart: unless-stopped

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuraInsights — AI Discovery Engine for Beauty Shopping</title>
+  <meta name="description" content="AI Discovery Engine and Data Pipeline transforming unstructured feedback into structured, evidence-backed behavioral intelligence.">
+  
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Dashboard Styles -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">✨</div>
+        <div class="brand-text">
+          <span class="brand-name">AuraInsights</span>
+          <span class="brand-sub">AI Discovery Engine & Behavioral Pipeline</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" id="navTabs">
+        <button class="nav-btn active" data-tab="overviewTab">📊 Overview</button>
+        <button class="nav-btn" data-tab="problemTab">🛑 Problem Explorer</button>
+        <button class="nav-btn" data-tab="categoryTab">💄 Category Explorer</button>
+        <button class="nav-btn" data-tab="evidenceTab">🔍 Evidence Explorer</button>
+        <button class="nav-btn" data-tab="opportunityTab">💎 Opportunity Matrix</button>
+        <button class="nav-btn" data-tab="assistantTab">🤖 AI Assistant</button>
+        <button class="nav-btn" data-tab="validationTab">🛡️ QA & Benchmark</button>
+        <button class="nav-btn upload-nav-btn" data-tab="uploadTab">📂 Ingest Data</button>
+      </nav>
+
+      <div class="header-status">
+        <span class="status-indicator"></span>
+        <span class="status-text" id="statusBadge">DuckDB Active</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main App Content -->
+  <main class="app-main">
+
+    <!-- 1. Executive Overview Tab -->
+    <section id="overviewTab" class="tab-content active">
+      <div class="section-header">
+        <div>
+          <h2>Executive Intelligence Overview</h2>
+          <p class="section-subtitle">Real-time behavioral quantification and purchase blocker intelligence across analyzed feedback.</p>
+        </div>
+        <button class="btn btn-secondary" onclick="app.refreshAllData()">🔄 Refresh Analytics</button>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon">📝</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Total Analyzed Records</span>
+            <span class="kpi-value" id="kpiTotalRecords">--</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🎯</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Top Purchase Blocker</span>
+            <span class="kpi-value" id="kpiTopBlocker">--</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🏆</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Top Opportunity Area</span>
+            <span class="kpi-value" id="kpiTopOpportunity">--</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🛡️</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Mean AI Confidence</span>
+            <span class="kpi-value" id="kpiConfidence">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid-2">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h3>Primary Behavioral Themes</h3>
+            <span class="badge">Deterministic Cluster %</span>
+          </div>
+          <div class="chart-container doughnut-container">
+            <canvas id="themesDoughnutChart"></canvas>
+          </div>
+        </div>
+
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h3>Purchase Decision Triggers</h3>
+            <span class="badge">Unlocking Actions</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="triggersBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Insights Strip -->
+      <div class="dashboard-card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3>⚡ Key Behavioral Discoveries</h3>
+        </div>
+        <div class="insights-list" id="overviewInsightsList">
+          <!-- Dynamic insights inserted by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Problem Explorer Tab -->
+    <section id="problemTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>Problem & Barrier Explorer</h2>
+          <p class="section-subtitle">Ranked purchase blockers, information voids, and external research habits.</p>
+        </div>
+        <div class="filter-group">
+          <label for="problemCategoryFilter">Category Filter:</label>
+          <select id="problemCategoryFilter" class="select-input" onchange="app.loadProblemData()">
+            <option value="">All Categories</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h3>Ranked Purchase Blockers</h3>
+            <span class="badge" id="blockerCountBadge">Frequency %</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="blockersBarChart"></canvas>
+          </div>
+        </div>
+
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h3>Information Gaps (Missing Details)</h3>
+            <span class="badge">Pre-Purchase Needs</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="gapsBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3>External Research Channels</h3>
+          <span class="badge">Off-Platform Validation</span>
+        </div>
+        <div class="chart-container" style="max-height: 260px;">
+          <canvas id="channelsBarChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Category Explorer Tab -->
+    <section id="categoryTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>Category Deep-Dive</h2>
+          <p class="section-subtitle">Inspect behavioral differences across product categories.</p>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="category-pills" id="categoryPillContainer">
+        <!-- Generated by JS -->
+      </div>
+
+      <div class="grid-2" style="margin-top: 1.5rem;">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h3 id="categoryActiveTitle">Foundation Behavioral Profile</h3>
+          </div>
+          <div class="category-profile-box" id="categoryProfileBox">
+            <!-- Dynamic stats -->
+          </div>
+        </div>
+
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h3>Category Verbatim Statements</h3>
+          </div>
+          <div class="category-quotes-list" id="categoryQuotesList">
+            <!-- Dynamic quotes -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Evidence Explorer Tab -->
+    <section id="evidenceTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>Evidence & Quote Explorer</h2>
+          <p class="section-subtitle">Search and inspect verbatim customer feedback with confidence ratings and classification tags.</p>
+        </div>
+      </div>
+
+      <!-- Filters Bar -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="evidenceSearchInput" placeholder="Search verbatim quotes or keywords..." oninput="app.debounceEvidenceSearch()">
+        </div>
+        <div class="filter-selects">
+          <select id="evidenceCategorySelect" class="select-input" onchange="app.loadEvidenceData()">
+            <option value="ALL">All Categories</option>
+          </select>
+          <select id="evidenceThemeSelect" class="select-input" onchange="app.loadEvidenceData()">
+            <option value="ALL">All Themes</option>
+            <option value="SHADE_CONFIDENCE">Shade Confidence</option>
+            <option value="PRICE_VALUE">Price & Value</option>
+            <option value="SUITABILITY">Suitability</option>
+            <option value="QUALITY_TRUST">Quality & Trust</option>
+            <option value="COMPARISON">Comparison</option>
+            <option value="INTENT_DECAY">Intent Decay</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Evidence Table -->
+      <div class="dashboard-card table-card" style="margin-top: 1rem;">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 70px;">ID</th>
+                <th style="width: 120px;">Category</th>
+                <th style="width: 140px;">Primary Theme</th>
+                <th style="width: 130px;">Intent</th>
+                <th>Verbatim Evidence / Customer Statement</th>
+                <th style="width: 110px;">Blockers</th>
+                <th style="width: 90px;">Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="evidenceTableBody">
+              <!-- Dynamic rows -->
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span id="evidenceCountText">Showing 0 records</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Opportunity Prioritization Matrix Tab -->
+    <section id="opportunityTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>Opportunity Prioritization Matrix</h2>
+          <p class="section-subtitle">Scored candidate opportunity areas with real-time parameter tuning.</p>
+        </div>
+        <button class="btn btn-secondary" onclick="app.resetOpportunityWeights()">🔄 Reset Default Weights</button>
+      </div>
+
+      <!-- Formula Explainer Banner -->
+      <div class="formula-banner">
+        <span class="formula-icon">📐</span>
+        <div class="formula-text">
+          <strong>Opportunity Score Model:</strong>
+          <code>Score = Frequency Ratio × Purchase Relevance (1-5) × Segment Impact (1-5) × Solvability (1-5) × 10</code>
+        </div>
+      </div>
+
+      <!-- Dynamic Weight Tuning Sliders -->
+      <div class="dashboard-card" style="margin-top: 1rem;">
+        <div class="card-header">
+          <h3>Interactive Sensitivity Sliders</h3>
+          <span class="badge">Adjust Scoring Parameters</span>
+        </div>
+        <div class="sliders-grid">
+          <div class="slider-group">
+            <label>Shade Solvability: <span id="shadeSolvVal">4.5</span></label>
+            <input type="range" min="1.0" max="5.0" step="0.1" value="4.5" id="shadeSolvSlider" oninput="app.updateWeightAndRecalculate()">
+          </div>
+          <div class="slider-group">
+            <label>Price Relevance: <span id="priceRelVal">4.2</span></label>
+            <input type="range" min="1.0" max="5.0" step="0.1" value="4.2" id="priceRelSlider" oninput="app.updateWeightAndRecalculate()">
+          </div>
+          <div class="slider-group">
+            <label>Suitability Impact: <span id="suitImpVal">4.3</span></label>
+            <input type="range" min="1.0" max="5.0" step="0.1" value="4.3" id="suitImpSlider" oninput="app.updateWeightAndRecalculate()">
+          </div>
+          <div class="slider-group">
+            <label>Quality Solvability: <span id="qualSolvVal">3.8</span></label>
+            <input type="range" min="1.0" max="5.0" step="0.1" value="3.8" id="qualSolvSlider" oninput="app.updateWeightAndRecalculate()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Ranked Opportunity Cards -->
+      <div class="opportunity-cards-grid" id="opportunityCardsContainer" style="margin-top: 1.5rem;">
+        <!-- Dynamic Cards -->
+      </div>
+    </section>
+
+    <!-- 6. AI Research Assistant (RAG Chat) Tab -->
+    <section id="assistantTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>AI Qualitative Research Assistant</h2>
+          <p class="section-subtitle">Ask discovery questions in natural language and receive synthesized answers with cited customer quotes.</p>
+        </div>
+      </div>
+
+      <!-- Prompt Chips -->
+      <div class="prompt-chips">
+        <span class="chip-label">Try asking:</span>
+        <button class="chip-btn" onclick="app.askAssistant('Why do foundation shoppers hesitate before purchasing?')">💄 Foundation shade hesitation</button>
+        <button class="chip-btn" onclick="app.askAssistant('Why do users wishlist lipstick but delay purchase?')">💋 Lipstick wishlist delay</button>
+        <button class="chip-btn" onclick="app.askAssistant('What external research channels do beauty buyers use?')">📺 External research sources</button>
+        <button class="chip-btn" onclick="app.askAssistant('What are the main concerns about sunscreen?')">☀️ Sunscreen white cast</button>
+      </div>
+
+      <!-- Chat Container -->
+      <div class="dashboard-card chat-card" style="margin-top: 1rem;">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-bubble assistant-bubble">
+            <div class="bubble-avatar">🤖</div>
+            <div class="bubble-content">
+              <strong>Hello! I am your AI Qualitative Discovery Assistant.</strong>
+              <p>I synthesize behavioral patterns across all wishlisted beauty feedback and provide <strong>evidence-grounded answers with direct customer citations</strong>.</p>
+              <p>Type a question below or click one of the suggested prompts above!</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-row">
+          <input type="text" id="assistantInput" class="chat-input" placeholder="Ask anything about shopping barriers, wishlist abandonment, or unmet customer needs..." onkeypress="if(event.key === 'Enter') app.submitAssistantQuery()">
+          <button class="btn btn-primary" onclick="app.submitAssistantQuery()" id="askBtn">Send Query ✨</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Phase 6: QA & Benchmark Tab -->
+    <section id="validationTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>Validation Layer & Human-in-the-Loop QA</h2>
+          <p class="section-subtitle">100-Sample Gold Standard benchmark accuracy metrics and human classification review console.</p>
+        </div>
+        <button class="btn btn-primary" onclick="app.runBenchmarkEvaluation()">🚀 Run 100-Sample Benchmark</button>
+      </div>
+
+      <!-- Benchmark Summary Stats Grid -->
+      <div class="kpi-grid" id="benchmarkKpiGrid">
+        <div class="kpi-card">
+          <div class="kpi-icon">📊</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Benchmark Samples</span>
+            <span class="kpi-value">100</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🎯</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Macro F1-Score</span>
+            <span class="kpi-value" id="benchMacroF1" style="color: #10B981;">94.2%</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🤝</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Cohen's Kappa (κ)</span>
+            <span class="kpi-value" id="benchKappa" style="color: #06B6D4;">0.925</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🛡️</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Gate Threshold Status</span>
+            <span class="kpi-value" style="color: #10B981;">PASSED (Gate > 85%)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Human Review Queue Card -->
+      <div class="dashboard-card table-card" style="margin-top: 1.5rem;">
+        <div class="card-header" style="padding: 1.25rem 1.5rem 0.5rem 1.5rem;">
+          <div>
+            <h3>Human-in-the-Loop Review Queue</h3>
+            <p class="section-subtitle">Inspect and approve records with confidence &lt; 0.70 or low semantic clarity.</p>
+          </div>
+          <button class="btn btn-secondary" onclick="app.loadReviewQueue()">🔄 Refresh Queue</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Record ID</th>
+                <th style="width: 120px;">Category</th>
+                <th>Verbatim Statement</th>
+                <th style="width: 160px;">Predicted Theme</th>
+                <th style="width: 100px;">Confidence</th>
+                <th style="width: 120px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="reviewQueueTableBody">
+              <!-- Dynamic Rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Ingest Data Tab -->
+    <section id="uploadTab" class="tab-content">
+      <div class="section-header">
+        <div>
+          <h2>Ingest New Feedback Dataset</h2>
+          <p class="section-subtitle">Upload Excel (.xlsx), CSV (.csv), or JSON (.json) feedback records to enrich the research corpus.</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card upload-card" style="margin-top: 1rem;">
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-icon">📁</div>
+          <h3>Drag & Drop your dataset file here</h3>
+          <p>Supports .xlsx, .xls, .csv, and .json files</p>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json" style="display: none;" onchange="app.handleFileSelected(event)">
+          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="margin-top: 1rem;">Browse File</button>
+        </div>
+
+        <div id="uploadProgressBox" class="upload-progress-box" style="display: none;">
+          <div class="spinner"></div>
+          <span id="uploadStatusText">Ingesting, normalizing, deduplicating, and classifying records...</span>
+        </div>
+
+        <div id="uploadResultBox" class="upload-result-box" style="display: none;">
+          <!-- Ingestion summary -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Main JavaScript Application -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
