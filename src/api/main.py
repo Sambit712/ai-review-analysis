@@ -90,6 +90,14 @@ class HumanOverrideRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class DeleteRecordsRequest(BaseModel):
+    record_ids: Optional[List[str]] = None
+    category: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+
+
+
 # --- API Routes ---
 
 @app.get("/api/overview")
@@ -169,6 +177,8 @@ def get_opportunities(
 
 @app.get("/api/evidence")
 def get_evidence_records(
+    search: Optional[str] = None,
+    query: Optional[str] = None,
     category: Optional[str] = None,
     theme: Optional[str] = None,
     source: Optional[str] = None,
@@ -190,7 +200,14 @@ def get_evidence_records(
             conditions.append("r.source = ?")
             params.append(source)
 
+        search_term = search or query
+        if search_term and search_term.strip():
+            search_param = f"%{search_term.strip()}%"
+            conditions.append("(r.raw_text ILIKE ? OR r.cleaned_text ILIKE ? OR b.verbatim_evidence ILIKE ? OR r.record_id ILIKE ? OR r.product_category ILIKE ? OR b.theme ILIKE ?)")
+            params.extend([search_param, search_param, search_param, search_param, search_param, search_param])
+
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
 
         count_query = f"""
             SELECT COUNT(*)
@@ -279,6 +296,36 @@ def get_record_lineage(record_id: str):
     if not info:
         raise HTTPException(status_code=404, detail="Record not found")
     return info
+
+
+@app.delete("/api/records")
+@app.post("/api/records/delete")
+def delete_records(req: DeleteRecordsRequest):
+    """
+    Delete a set of reviews by explicit IDs or filtered by category/source/status.
+    Cascades to behavioral enrichments, updates search index, and recalculates insights.
+    """
+    result = incremental_pipeline.delete_records(
+        record_ids=req.record_ids,
+        category=req.category,
+        source=req.source,
+        status=req.status,
+    )
+    if result.get("deleted_count", 0) == 0:
+        return {"status": "NO_OP", **result}
+    return {"status": "SUCCESS", **result}
+
+
+@app.delete("/api/records/{record_id}")
+def delete_single_record(record_id: str):
+    """
+    Delete a single feedback record and its associated AI enrichments.
+    """
+    result = incremental_pipeline.delete_records(record_ids=[record_id])
+    if result.get("deleted_count", 0) == 0:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return {"status": "SUCCESS", **result}
+
 
 
 # --- Validation & Human Review Routes ---

@@ -8,8 +8,10 @@ class DashboardApp {
     this.categories = [];
     this.activeCategory = "FOUNDATION";
     this.debounceTimer = null;
+    this.selectedEvidenceIds = new Set();
     this.init();
   }
+
 
   async init() {
     this.setupTabs();
@@ -396,17 +398,23 @@ class DashboardApp {
       const data = await fetch(`/api/evidence?${params.toString()}`).then(r => r.json());
       const tbody = document.getElementById("evidenceTableBody");
       const countEl = document.getElementById("evidenceCountText");
+      const masterCheckbox = document.getElementById("selectAllEvidenceCheckbox");
+      if (masterCheckbox) masterCheckbox.checked = false;
 
       if (countEl) countEl.innerText = `Showing ${data.records.length} of ${data.total} records`;
 
       if (tbody) {
         if (data.records.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94A3B8; padding: 2rem;">No matching evidence records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94A3B8; padding: 2rem;">No matching evidence records found.</td></tr>`;
+          this.updateBulkDeleteButton();
           return;
         }
 
         tbody.innerHTML = data.records.map(r => `
           <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" class="evidence-row-checkbox" value="${r.record_id}" ${this.selectedEvidenceIds.has(r.record_id) ? 'checked' : ''} onchange="app.toggleEvidenceSelection('${r.record_id}', this)">
+            </td>
             <td><strong>#${r.record_id}</strong></td>
             <td><span class="pill-conf" style="background: rgba(99,102,241,0.15); color: #818CF8;">${r.product_category}</span></td>
             <td><span class="pill-theme theme-${r.theme}">${(r.theme || 'OTHER').replace(/_/g, ' ')}</span></td>
@@ -418,13 +426,94 @@ class DashboardApp {
               <span style="font-size: 0.75rem; color: #F43F5E;">${(r.purchase_blocker || []).join(', ')}</span>
             </td>
             <td><span class="pill-conf">${(r.confidence_score * 100).toFixed(0)}%</span></td>
+            <td style="text-align: center;">
+              <button class="btn-delete-row" title="Delete review #${r.record_id}" onclick="app.deleteSingleEvidence('${r.record_id}')">🗑️</button>
+            </td>
           </tr>
         `).join("");
       }
+      this.updateBulkDeleteButton();
     } catch (e) {
       console.error("Failed to load evidence data", e);
     }
   }
+
+  toggleEvidenceSelection(recordId, checkbox) {
+    if (checkbox.checked) {
+      this.selectedEvidenceIds.add(recordId);
+    } else {
+      this.selectedEvidenceIds.delete(recordId);
+    }
+    this.updateBulkDeleteButton();
+  }
+
+  toggleSelectAllEvidence(masterCheckbox) {
+    const checkboxes = document.querySelectorAll(".evidence-row-checkbox");
+    checkboxes.forEach(cb => {
+      cb.checked = masterCheckbox.checked;
+      if (masterCheckbox.checked) {
+        this.selectedEvidenceIds.add(cb.value);
+      } else {
+        this.selectedEvidenceIds.delete(cb.value);
+      }
+    });
+    this.updateBulkDeleteButton();
+  }
+
+  updateBulkDeleteButton() {
+    const btn = document.getElementById("evidenceBulkDeleteBtn");
+    const countSpan = document.getElementById("selectedEvidenceCount");
+    const count = this.selectedEvidenceIds.size;
+    if (btn && countSpan) {
+      countSpan.innerText = count;
+      btn.style.display = count > 0 ? "inline-flex" : "none";
+    }
+  }
+
+  async deleteSingleEvidence(recordId) {
+    if (!confirm(`Are you sure you want to permanently delete review #${recordId}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/records/${encodeURIComponent(recordId)}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        this.selectedEvidenceIds.delete(recordId);
+        await this.refreshAllData();
+      } else {
+        const err = await res.json();
+        alert(`Failed to delete record: ${err.detail || "Unknown error"}`);
+      }
+    } catch (e) {
+      alert(`Error deleting record: ${e.message}`);
+    }
+  }
+
+  async deleteSelectedEvidence() {
+    const count = this.selectedEvidenceIds.size;
+    if (count === 0) return;
+    if (!confirm(`Are you sure you want to permanently delete ${count} selected review(s)?`)) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/records", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ record_ids: Array.from(this.selectedEvidenceIds) })
+      });
+      if (res.ok) {
+        this.selectedEvidenceIds.clear();
+        await this.refreshAllData();
+      } else {
+        const err = await res.json();
+        alert(`Failed to delete records: ${err.detail || "Unknown error"}`);
+      }
+    } catch (e) {
+      alert(`Error deleting records: ${e.message}`);
+    }
+  }
+
 
   // ==========================================
   // 5. Opportunity Prioritization Matrix Tab

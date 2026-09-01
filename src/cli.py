@@ -98,7 +98,16 @@ def main():
     sample_parser.add_argument("--limit", "-n", type=int, default=3, help="Number of records to display")
     sample_parser.add_argument("--db", default="data/raw_db/feedback.duckdb", help="DuckDB path")
 
+    # 15. Delete Records command
+    delete_parser = subparsers.add_parser("delete-records", help="Delete specific reviews or sets of reviews by criteria")
+    delete_parser.add_argument("--ids", help="Comma-separated list of record IDs to delete (e.g. REC_001,REC_002)")
+    delete_parser.add_argument("--category", "-c", default=None, help="Filter records to delete by product category")
+    delete_parser.add_argument("--source", "-s", default=None, help="Filter records to delete by source")
+    delete_parser.add_argument("--status", default=None, help="Filter records to delete by processing status")
+    delete_parser.add_argument("--db", default="data/raw_db/feedback.duckdb", help="DuckDB path")
+
     args = parser.parse_args()
+
 
     if not args.command:
         parser.print_help()
@@ -312,6 +321,25 @@ def main():
         finally:
             conn.close()
 
+    elif args.command == "delete-records":
+        record_ids = [i.strip() for i in args.ids.split(",") if i.strip()] if args.ids else None
+        if not record_ids and not args.category and not args.source and not args.status:
+            print("[ERROR] Please provide at least one filter (--ids, --category, --source, or --status).")
+            sys.exit(1)
+
+        db = FeedbackDatabase(args.db)
+        pipeline = IncrementalPipeline(db=db)
+        print(f"[*] Deleting records matching criteria (ids={record_ids}, category={args.category}, source={args.source}, status={args.status})...")
+        result = pipeline.delete_records(
+            record_ids=record_ids,
+            category=args.category,
+            source=args.source,
+            status=args.status,
+            recalculate_insights=True
+        )
+        print(f"[OK] {result['message']}. Deleted {result['deleted_count']} record(s). Insights recalculated: {result.get('insights_recalculated')}")
+
 
 if __name__ == "__main__":
     main()
+

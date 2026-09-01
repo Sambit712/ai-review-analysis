@@ -73,11 +73,21 @@ def test_get_evidence_endpoint(client):
     assert data["total"] >= 35
     assert len(data["records"]) <= 10
 
-    # Search filter
+    # Search filter with match
     res_search = client.get("/api/evidence?search=shade")
     assert res_search.status_code == 200
     search_data = res_search.json()
-    assert search_data["total"] > 0
+    assert 0 < search_data["total"] <= data["total"]
+    for rec in search_data["records"]:
+        searchable_text = f"{rec.get('raw_text', '')} {rec.get('verbatim_evidence', '')} {rec.get('record_id', '')} {rec.get('product_category', '')} {rec.get('theme', '')}".lower()
+        assert "shade" in searchable_text
+
+    # Search filter with no match
+    res_no_match = client.get("/api/evidence?search=nonexistent_xyz_query_12345")
+    assert res_no_match.status_code == 200
+    assert res_no_match.json()["total"] == 0
+    assert len(res_no_match.json()["records"]) == 0
+
 
 
 def test_post_ask_query(client):

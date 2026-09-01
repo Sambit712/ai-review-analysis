@@ -348,3 +348,68 @@ class FeedbackDatabase:
                 }
             finally:
                 conn.close()
+
+    def delete_records(
+        self,
+        record_ids: Optional[List[str]] = None,
+        category: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Delete a set of reviews and their associated AI behavioral records.
+        Supports deleting by specific record IDs or filtering by category, source, status.
+        Returns a summary dict with deleted_count and deleted_ids.
+        """
+        with FeedbackDatabase._global_lock:
+            conn = self.get_connection()
+            try:
+                conditions = []
+                params = []
+
+                if record_ids:
+                    placeholders = ", ".join(["?"] * len(record_ids))
+                    conditions.append(f"record_id IN ({placeholders})")
+                    params.extend(record_ids)
+
+                if category and category != "ALL":
+                    conditions.append("product_category = ?")
+                    params.append(category)
+
+                if source and source != "ALL":
+                    conditions.append("source = ?")
+                    params.append(source)
+
+                if status and status != "ALL":
+                    conditions.append("status = ?")
+                    params.append(status)
+
+                if not conditions:
+                    return {"deleted_count": 0, "deleted_ids": [], "message": "No deletion criteria specified"}
+
+                where_clause = f"WHERE {' AND '.join(conditions)}"
+
+                # Identify which record_ids match
+                id_query = f"SELECT record_id FROM raw_feedback {where_clause};"
+                matching_rows = conn.execute(id_query, params).fetchall()
+                target_ids = [r[0] for r in matching_rows]
+
+                if not target_ids:
+                    return {"deleted_count": 0, "deleted_ids": [], "message": "No records matched criteria"}
+
+                id_placeholders = ", ".join(["?"] * len(target_ids))
+
+                # 1. Delete from behavioral_records (referencing table)
+                conn.execute(f"DELETE FROM behavioral_records WHERE record_id IN ({id_placeholders});", target_ids)
+
+                # 2. Delete from raw_feedback
+                conn.execute(f"DELETE FROM raw_feedback WHERE record_id IN ({id_placeholders});", target_ids)
+
+                return {
+                    "deleted_count": len(target_ids),
+                    "deleted_ids": target_ids,
+                    "message": f"Successfully deleted {len(target_ids)} record(s)",
+                }
+            finally:
+                conn.close()
+

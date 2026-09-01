@@ -238,6 +238,7 @@
             <option value="COMPARISON">Comparison</option>
             <option value="INTENT_DECAY">Intent Decay</option>
           </select>
+          <button id="evidenceBulkDeleteBtn" class="btn btn-danger" style="display: none;" onclick="app.deleteSelectedEvidence()">🗑️ Delete Selected (<span id="selectedEvidenceCount">0</span>)</button>
         </div>
       </div>
 
@@ -247,6 +248,7 @@
           <table class="data-table">
             <thead>
               <tr>
+                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllEvidenceCheckbox" onchange="app.toggleSelectAllEvidence(this)"></th>
                 <th style="width: 70px;">ID</th>
                 <th style="width: 120px;">Category</th>
                 <th style="width: 140px;">Primary Theme</th>
@@ -254,6 +256,7 @@
                 <th>Verbatim Evidence / Customer Statement</th>
                 <th style="width: 110px;">Blockers</th>
                 <th style="width: 90px;">Confidence</th>
+                <th style="width: 70px; text-align: center;">Action</th>
               </tr>
             </thead>
             <tbody id="evidenceTableBody">
@@ -265,6 +268,7 @@
           <span id="evidenceCountText">Showing 0 records</span>
         </div>
       </div>
+
     </section>
 
     <!-- 5. Opportunity Prioritization Matrix Tab -->

@@ -232,3 +232,37 @@ class IncrementalPipeline:
 
         self.db.log_audit_batch(to_dict_safe(audit_report))
         return audit_report
+
+    def delete_records(
+        self,
+        record_ids: Optional[List[str]] = None,
+        category: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[str] = None,
+        recalculate_insights: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Delete a set of records from storage, re-index search, and recalculate insights.
+        """
+        result = self.db.delete_records(
+            record_ids=record_ids,
+            category=category,
+            source=source,
+            status=status,
+        )
+
+        insights_updated = False
+        if result.get("deleted_count", 0) > 0 and recalculate_insights:
+            try:
+                self.scorer.compute_opportunity_rankings()
+            except Exception:
+                pass
+            try:
+                self.search_index.build_index()
+            except Exception:
+                pass
+            insights_updated = True
+
+        result["insights_recalculated"] = insights_updated
+        return result
+
