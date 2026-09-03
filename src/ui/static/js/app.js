@@ -334,82 +334,88 @@ class DashboardApp {
     if (!ctx) return;
     if (this.charts.crossCategoryThemes) this.charts.crossCategoryThemes.destroy();
 
-    // Sort categories with FOUNDATION first, followed by others sorted by count
-    const categories = Object.keys(catMatrix).sort((a, b) => {
-      if (a === "FOUNDATION") return -1;
-      if (b === "FOUNDATION") return 1;
-      return catMatrix[b].total - catMatrix[a].total;
-    });
-
-    const labels = categories.map(c => c.replace(/_/g, " "));
-
     // 5 core behavioral themes requested
     const themesConfig = [
-      { key: "PRICE_VALUE", label: "Price & Value", color: "#F59E0B" },
-      { key: "SHADE_CONFIDENCE", label: "Shade Confidence", color: "#F43F5E" },
-      { key: "COMPARISON", label: "Comparison", color: "#06B6D4" },
-      { key: "SUITABILITY", label: "Suitability", color: "#10B981" },
-      { key: "QUALITY_TRUST", label: "Quality & Trust", color: "#A855F7" },
+      { key: "PRICE_VALUE", label: "PRICE VALUE", color: "#F59E0B" },
+      { key: "SHADE_CONFIDENCE", label: "SHADE CONFIDENCE", color: "#F43F5E" },
+      { key: "COMPARISON", label: "COMPARISON", color: "#06B6D4" },
+      { key: "SUITABILITY", label: "SUITABILITY", color: "#10B981" },
+      { key: "QUALITY_TRUST", label: "QUALITY TRUST", color: "#A855F7" },
     ];
 
-    const datasets = themesConfig.map(th => ({
-      label: th.label,
-      data: categories.map(cat => (catMatrix[cat].themes && catMatrix[cat].themes[th.key]) || 0),
-      backgroundColor: th.color,
-      borderRadius: 4,
-    }));
+    // Calculate total count for each theme summed across all product categories
+    let grandTotalStatements = 0;
+    const totals = themesConfig.map(th => {
+      let count = 0;
+      Object.values(catMatrix).forEach(catData => {
+        if (catData.themes && catData.themes[th.key]) {
+          count += catData.themes[th.key];
+        }
+      });
+      return count;
+    });
+
+    Object.values(catMatrix).forEach(catData => {
+      grandTotalStatements += (catData.total || 0);
+    });
+
+    const labels = themesConfig.map(th => th.label);
+    const bgColors = themesConfig.map(th => th.color);
 
     this.charts.crossCategoryThemes = new Chart(ctx, {
       type: "bar",
       data: {
         labels: labels,
-        datasets: datasets,
+        datasets: [{
+          label: "Total Number of Statements (All Products)",
+          data: totals,
+          backgroundColor: bgColors,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: "rgba(255, 255, 255, 0.12)",
+          barPercentage: 0.6,
+        }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            position: "top",
-            labels: {
-              color: "#E2E8F0",
-              font: { size: 12, family: "'Inter', sans-serif" },
-              padding: 16,
-              usePointStyle: true,
-              pointStyle: "circle",
-            },
+            display: false,
           },
           tooltip: {
             backgroundColor: "rgba(15, 23, 42, 0.95)",
             titleColor: "#FFFFFF",
             bodyColor: "#CBD5E1",
-            borderColor: "rgba(255, 255, 255, 0.1)",
+            borderColor: "rgba(255, 255, 255, 0.15)",
             borderWidth: 1,
-            padding: 10,
+            padding: 12,
             callbacks: {
-              afterBody: (tooltipItems) => {
-                const item = tooltipItems[0];
-                const catKey = categories[item.dataIndex];
-                const total = catMatrix[catKey].total;
-                return `\nTotal Statements: ${total}`;
+              label: (context) => {
+                const count = context.parsed.y;
+                const pct = grandTotalStatements > 0 ? ((count / grandTotalStatements) * 100).toFixed(1) : 0;
+                return ` ${count} statements (${pct}% of all ${grandTotalStatements.toLocaleString()} analyzed products)`;
               }
             }
           }
         },
         scales: {
           x: {
-            stacked: false,
-            ticks: { color: "#CBD5E1", font: { size: 11, weight: "500" } },
+            ticks: {
+              color: "#E2E8F0",
+              font: { size: 12, weight: "600", family: "'Inter', sans-serif" },
+              padding: 6,
+            },
             grid: { display: false }
           },
           y: {
-            stacked: false,
             ticks: {
               color: "#94A3B8",
               font: { size: 11 },
-              stepSize: 25
+              stepSize: 200,
+              callback: v => v.toLocaleString()
             },
-            grid: { color: "rgba(255,255,255,0.06)" }
+            grid: { color: "rgba(255, 255, 255, 0.06)" }
           }
         }
       }
