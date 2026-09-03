@@ -362,6 +362,8 @@ class DashboardApp {
     const labels = themesConfig.map(th => th.label);
     const bgColors = themesConfig.map(th => th.color);
 
+    const maxVal = Math.max(...totals, 100);
+
     this.charts.crossCategoryThemes = new Chart(ctx, {
       type: "bar",
       data: {
@@ -373,12 +375,43 @@ class DashboardApp {
           borderRadius: 8,
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.12)",
-          barPercentage: 0.6,
+          barPercentage: 0.55,
         }],
       },
+      plugins: [{
+        id: "topValueLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          chart.data.datasets.forEach((dataset, datasetIndex) => {
+            const meta = chart.getDatasetMeta(datasetIndex);
+            if (!meta.hidden) {
+              meta.data.forEach((barElement, index) => {
+                const val = dataset.data[index];
+                if (val !== undefined && val !== null) {
+                  const formatted = Number(val).toLocaleString();
+                  const pct = grandTotalStatements > 0 ? ` (${((val / grandTotalStatements) * 100).toFixed(1)}%)` : "";
+                  ctx.save();
+                  ctx.fillStyle = "#FFFFFF";
+                  ctx.font = "bold 13px 'Inter', sans-serif";
+                  ctx.textAlign = "center";
+                  ctx.textBaseline = "bottom";
+                  // Render exact count above bar
+                  ctx.fillText(`${formatted}${pct}`, barElement.x, barElement.y - 6);
+                  ctx.restore();
+                }
+              });
+            }
+          });
+        }
+      }],
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            top: 20
+          }
+        },
         plugins: {
           legend: {
             display: false,
@@ -409,6 +442,7 @@ class DashboardApp {
             grid: { display: false }
           },
           y: {
+            suggestedMax: Math.ceil(maxVal * 1.15),
             ticks: {
               color: "#94A3B8",
               font: { size: 11 },
@@ -442,6 +476,8 @@ class DashboardApp {
     const dataValues = themeDefinitions.map(t => themesMap[t.key] || 0);
     const bgColors = themeDefinitions.map(t => t.color);
 
+    const maxCatVal = Math.max(...dataValues, 10);
+
     this.charts.categoryThemes = new Chart(ctx, {
       type: "bar",
       data: {
@@ -453,10 +489,39 @@ class DashboardApp {
           borderRadius: 6,
         }]
       },
+      plugins: [{
+        id: "catValueLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          chart.data.datasets.forEach((dataset, datasetIndex) => {
+            const meta = chart.getDatasetMeta(datasetIndex);
+            if (!meta.hidden) {
+              meta.data.forEach((barElement, index) => {
+                const val = dataset.data[index];
+                if (val !== undefined && val !== null) {
+                  const pct = total > 0 ? ` (${((val / total) * 100).toFixed(0)}%)` : "";
+                  ctx.save();
+                  ctx.fillStyle = "#CBD5E1";
+                  ctx.font = "bold 11px 'Inter', sans-serif";
+                  ctx.textAlign = "left";
+                  ctx.textBaseline = "middle";
+                  ctx.fillText(`${val}${pct}`, barElement.x + 6, barElement.y);
+                  ctx.restore();
+                }
+              });
+            }
+          });
+        }
+      }],
       options: {
         indexAxis: "y",
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            right: 40
+          }
+        },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -471,6 +536,7 @@ class DashboardApp {
         },
         scales: {
           x: {
+            suggestedMax: Math.ceil(maxCatVal * 1.15),
             ticks: { color: "#94A3B8", font: { size: 10 } },
             grid: { color: "rgba(255,255,255,0.05)" }
           },
