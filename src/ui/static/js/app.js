@@ -277,19 +277,26 @@ class DashboardApp {
   }
 
   // ==========================================
+  // ==========================================
   // 3. Category Explorer Tab
   // ==========================================
   async loadCategoryData() {
     try {
       const catMatrix = await fetch("/api/analytics/categories").then(r => r.json());
+      this.catMatrix = catMatrix;
       this.categories = Object.keys(catMatrix);
+
+      // Ensure active category exists, default to FOUNDATION
+      if (!this.activeCategory || !catMatrix[this.activeCategory]) {
+        this.activeCategory = catMatrix["FOUNDATION"] ? "FOUNDATION" : this.categories[0];
+      }
 
       // Populate filter pills
       const container = document.getElementById("categoryPillContainer");
       if (container) {
         container.innerHTML = this.categories.map(cat => `
           <button class="cat-pill ${cat === this.activeCategory ? 'active' : ''}" onclick="app.selectCategory('${cat}')">
-            ${cat} (${catMatrix[cat].total})
+            ${cat.replace(/_/g, ' ')} (${catMatrix[cat].total})
           </button>
         `).join("");
       }
@@ -297,8 +304,12 @@ class DashboardApp {
       // Populate dropdowns across tabs
       this.populateCategoryDropdowns(this.categories);
 
-      // Load active category profile
+      // Render Cross-Product Comparison Bar Chart
+      this.renderCrossCategoryThemesBar(catMatrix);
+
+      // Render active category profile & chart
       this.renderCategoryProfile(this.activeCategory, catMatrix[this.activeCategory]);
+      this.renderCategoryThemesBar(this.activeCategory, catMatrix[this.activeCategory]);
     } catch (e) {
       console.error("Failed to load category explorer data", e);
     }
@@ -307,9 +318,163 @@ class DashboardApp {
   selectCategory(category) {
     this.activeCategory = category;
     document.querySelectorAll(".cat-pill").forEach(p => {
-      p.classList.toggle("active", p.innerText.includes(category));
+      p.classList.toggle("active", p.innerText.toUpperCase().includes(category.replace(/_/g, ' ')));
     });
-    this.loadCategoryData();
+
+    if (this.catMatrix && this.catMatrix[category]) {
+      this.renderCategoryProfile(category, this.catMatrix[category]);
+      this.renderCategoryThemesBar(category, this.catMatrix[category]);
+    } else {
+      this.loadCategoryData();
+    }
+  }
+
+  renderCrossCategoryThemesBar(catMatrix) {
+    const ctx = document.getElementById("crossCategoryThemesBarChart");
+    if (!ctx) return;
+    if (this.charts.crossCategoryThemes) this.charts.crossCategoryThemes.destroy();
+
+    // Sort categories with FOUNDATION first, followed by others sorted by count
+    const categories = Object.keys(catMatrix).sort((a, b) => {
+      if (a === "FOUNDATION") return -1;
+      if (b === "FOUNDATION") return 1;
+      return catMatrix[b].total - catMatrix[a].total;
+    });
+
+    const labels = categories.map(c => c.replace(/_/g, " "));
+
+    // 5 core behavioral themes requested
+    const themesConfig = [
+      { key: "PRICE_VALUE", label: "Price & Value", color: "#F59E0B" },
+      { key: "SHADE_CONFIDENCE", label: "Shade Confidence", color: "#F43F5E" },
+      { key: "COMPARISON", label: "Comparison", color: "#06B6D4" },
+      { key: "SUITABILITY", label: "Suitability", color: "#10B981" },
+      { key: "QUALITY_TRUST", label: "Quality & Trust", color: "#A855F7" },
+    ];
+
+    const datasets = themesConfig.map(th => ({
+      label: th.label,
+      data: categories.map(cat => (catMatrix[cat].themes && catMatrix[cat].themes[th.key]) || 0),
+      backgroundColor: th.color,
+      borderRadius: 4,
+    }));
+
+    this.charts.crossCategoryThemes = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: datasets,
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            labels: {
+              color: "#E2E8F0",
+              font: { size: 12, family: "'Inter', sans-serif" },
+              padding: 16,
+              usePointStyle: true,
+              pointStyle: "circle",
+            },
+          },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.95)",
+            titleColor: "#FFFFFF",
+            bodyColor: "#CBD5E1",
+            borderColor: "rgba(255, 255, 255, 0.1)",
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              afterBody: (tooltipItems) => {
+                const item = tooltipItems[0];
+                const catKey = categories[item.dataIndex];
+                const total = catMatrix[catKey].total;
+                return `\nTotal Statements: ${total}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: false,
+            ticks: { color: "#CBD5E1", font: { size: 11, weight: "500" } },
+            grid: { display: false }
+          },
+          y: {
+            stacked: false,
+            ticks: {
+              color: "#94A3B8",
+              font: { size: 11 },
+              stepSize: 25
+            },
+            grid: { color: "rgba(255,255,255,0.06)" }
+          }
+        }
+      }
+    });
+  }
+
+  renderCategoryThemesBar(category, catData) {
+    const ctx = document.getElementById("categoryThemesBarChart");
+    if (!ctx) return;
+    if (this.charts.categoryThemes) this.charts.categoryThemes.destroy();
+
+    const themesMap = catData ? (catData.themes || {}) : {};
+    const total = catData ? (catData.total || 0) : 0;
+
+    const themeDefinitions = [
+      { key: "PRICE_VALUE", label: "Price & Value", color: "#F59E0B" },
+      { key: "SHADE_CONFIDENCE", label: "Shade Confidence", color: "#F43F5E" },
+      { key: "COMPARISON", label: "Comparison", color: "#06B6D4" },
+      { key: "SUITABILITY", label: "Suitability", color: "#10B981" },
+      { key: "QUALITY_TRUST", label: "Quality & Trust", color: "#A855F7" },
+    ];
+
+    const labels = themeDefinitions.map(t => t.label);
+    const dataValues = themeDefinitions.map(t => themesMap[t.key] || 0);
+    const bgColors = themeDefinitions.map(t => t.color);
+
+    this.charts.categoryThemes = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: `${category} Statement Count`,
+          data: dataValues,
+          backgroundColor: bgColors,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const count = context.parsed.x;
+                const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                return ` ${count} statements (${pct}% of ${category.replace(/_/g, ' ')})`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#94A3B8", font: { size: 10 } },
+            grid: { color: "rgba(255,255,255,0.05)" }
+          },
+          y: {
+            ticks: { color: "#E2E8F0", font: { size: 11, weight: "500" } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
   }
 
   populateCategoryDropdowns(categories) {
@@ -330,14 +495,17 @@ class DashboardApp {
 
   async renderCategoryProfile(category, catData) {
     const titleEl = document.getElementById("categoryActiveTitle");
+    const subtitleEl = document.getElementById("categoryActiveSubtitle");
     const profileBox = document.getElementById("categoryProfileBox");
     const quotesList = document.getElementById("categoryQuotesList");
 
-    if (titleEl) titleEl.innerText = `${category} Behavioral Profile`;
+    const formattedCategory = category.replace(/_/g, " ");
+    if (titleEl) titleEl.innerText = `${formattedCategory} Behavioral Profile`;
+    if (subtitleEl) subtitleEl.innerText = `Behavioral distribution count for ${formattedCategory} products`;
 
     if (profileBox && catData) {
       const themesList = Object.entries(catData.themes || {})
-        .map(([t, cnt]) => `<strong>${t.replace(/_/g, " ")}:</strong> ${cnt} records`)
+        .map(([t, cnt]) => `<strong>${t.replace(/_/g, " ")}:</strong> ${cnt} statements (${((cnt / catData.total) * 100).toFixed(1)}%)`)
         .join("<br>");
 
       profileBox.innerHTML = `
@@ -346,8 +514,8 @@ class DashboardApp {
           <strong>${catData.total} records</strong>
         </div>
         <div class="profile-stat" style="flex-direction: column; align-items: flex-start; gap: 0.4rem;">
-          <span>Primary Behavioral Theme Distribution:</span>
-          <div style="font-size: 0.82rem; color: #CBD5E1;">${themesList}</div>
+          <span>Theme Distribution Breakdown:</span>
+          <div style="font-size: 0.82rem; color: #CBD5E1; line-height: 1.5;">${themesList}</div>
         </div>
       `;
     }
@@ -360,7 +528,7 @@ class DashboardApp {
           <div class="quote-card">
             <p>"${rec.verbatim_evidence || rec.raw_text}"</p>
             <div class="quote-meta">
-              <span>Record #${rec.record_id} • Theme: ${rec.theme}</span>
+              <span>Record #${rec.record_id} • Theme: ${(rec.theme || 'OTHER').replace(/_/g, ' ')}</span>
               <span>Confidence: ${(rec.confidence_score * 100).toFixed(0)}%</span>
             </div>
           </div>
