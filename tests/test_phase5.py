@@ -13,11 +13,12 @@ from src.ai.groq_client import GroqClient
 
 @pytest.fixture(scope="module")
 def client():
-    # Ensure database has sample records ingested & classified
+    # Ensure database has records ingested & classified
     db = FeedbackDatabase()
     ingestor = BatchIngestor()
-    db.insert_normalized_records(ingestor.ingest_file("Docs/nykaa_ai_discovery_database_plus_25_test_statements.xlsx"))
-    BehavioralClassifier(groq_client=GroqClient()).process_and_save_records(db)
+    records = ingestor.ingest_file("Docs/nykaa_ai_discovery_database_statements.xlsx")
+    db.insert_normalized_records(records[:35])
+    BehavioralClassifier(groq_client=GroqClient(api_key="")).process_and_save_records(db)
     
     with TestClient(app) as c:
         yield c

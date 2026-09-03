@@ -265,20 +265,27 @@ def main():
 
         response = service.ask(
             query=args.query,
-            category_filter=args.category,
-            theme_filter=args.theme,
+            category=args.category,
+            theme=args.theme,
             top_k=args.k,
         )
 
         print("\n" + "=" * 65)
         print("=== EVIDENCE-GROUNDED SYNTHESIS ===")
         print("=" * 65)
-        print(f"\n{response.synthesis_answer}\n")
+        answer_text = response.get("answer", response.get("synthesis_answer", ""))
+        print(f"\n{answer_text}\n")
         print("--- Cited Customer Evidence ---")
-        for i, ev in enumerate(response.citations, 1):
-            print(f"[{i}] Record #{ev.record_id} ({ev.product_category} | Source: {ev.source})")
-            print(f"    Text: \"{ev.text}\"")
-            print(f"    Key Quote: \"{ev.verbatim_evidence}\"")
+        citations = response.get("cited_records", response.get("citations", []))
+        for i, ev in enumerate(citations, 1):
+            rec_id = ev.get("record_id") if isinstance(ev, dict) else getattr(ev, "record_id", "")
+            cat = ev.get("product_category") if isinstance(ev, dict) else getattr(ev, "product_category", "")
+            src = ev.get("source") if isinstance(ev, dict) else getattr(ev, "source", "")
+            txt = ev.get("raw_text", ev.get("text", "")) if isinstance(ev, dict) else getattr(ev, "text", "")
+            verb = ev.get("verbatim_evidence", "") if isinstance(ev, dict) else getattr(ev, "verbatim_evidence", "")
+            print(f"[{i}] Record #{rec_id} ({cat} | Source: {src})")
+            print(f"    Text: \"{txt}\"")
+            print(f"    Key Quote: \"{verb}\"")
         print("=" * 65 + "\n")
 
     elif args.command == "search":

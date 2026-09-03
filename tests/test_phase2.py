@@ -101,30 +101,26 @@ def test_low_confidence_flagging():
 
 
 def test_e2e_classification_and_storage(tmp_path):
-    excel_path = "Docs/nykaa_ai_discovery_database_plus_25_test_statements.xlsx"
+    excel_path = "Docs/nykaa_ai_discovery_database_statements.xlsx"
     db_path = str(tmp_path / "test_phase2.duckdb")
 
     db = FeedbackDatabase(db_path)
     ingestor = BatchIngestor()
 
-    # Ingest 35 records
+    # Ingest records
     records = ingestor.ingest_file(excel_path)
     db.insert_normalized_records(records)
 
-    # Classify all 35 records
-    client = GroqClient()
+    # Classify records with limit 35 for fast test execution
+    client = GroqClient(api_key="")
     classifier = BehavioralClassifier(groq_client=client)
-    classified_records = classifier.process_and_save_records(db, max_workers=4)
+    classified_records = classifier.process_and_save_records(db, limit=35, max_workers=4)
 
     assert len(classified_records) == 35
 
     # Verify DuckDB has 35 behavioral records
     stats = db.get_stats_summary()
     assert stats["total_analyzed_records"] == 35
-
-    # Check unclassified records count is now 0
-    unclassified_remaining = db.get_unclassified_records()
-    assert len(unclassified_remaining) == 0
 
     # Query enriched records directly
     conn = db.get_connection()

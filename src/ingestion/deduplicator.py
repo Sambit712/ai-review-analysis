@@ -28,27 +28,50 @@ class Deduplicator:
         self.fuzzy_threshold = fuzzy_threshold
         self.seen_hashes: Dict[str, str] = {}  # text_hash -> canonical_record_id
         self.seen_tokens: Dict[str, Set[str]] = {}  # canonical_record_id -> token_set
+        self.token_to_canon_ids: Dict[str, Set[str]] = {}  # token -> set of canonical_record_ids
 
     def process_record(self, record: NormalizedRecord) -> NormalizedRecord:
         """Evaluate a single record against indexed records for deduplication."""
-        # 1. Exact match check
+        # 1. Exact match check (O(1))
         if record.text_hash in self.seen_hashes:
             record.is_duplicate = True
             record.canonical_record_id = self.seen_hashes[record.text_hash]
             return record
 
-        # 2. Fuzzy match check
+        # 2. Fuzzy match check with inverted index candidate filtering
         record_tokens = tokenize_for_similarity(record.cleaned_text)
-        for canon_id, existing_tokens in self.seen_tokens.items():
-            sim = compute_jaccard_similarity(record_tokens, existing_tokens)
-            if sim >= self.fuzzy_threshold:
-                record.is_duplicate = True
-                record.canonical_record_id = canon_id
-                return record
+        len_rec = len(record_tokens)
+
+        if len_rec > 0 and self.token_to_canon_ids:
+            min_hits_needed = max(1, int(len_rec * self.fuzzy_threshold))
+            candidate_hits: Dict[str, int] = {}
+            for token in record_tokens:
+                if token in self.token_to_canon_ids:
+                    for cid in self.token_to_canon_ids[token]:
+                        candidate_hits[cid] = candidate_hits.get(cid, 0) + 1
+
+            for canon_id, hits in candidate_hits.items():
+                if hits < min_hits_needed:
+                    continue
+                existing_tokens = self.seen_tokens[canon_id]
+                len_exist = len(existing_tokens)
+                if min(len_rec, len_exist) / max(len_rec, len_exist) < self.fuzzy_threshold:
+                    continue
+
+                sim = compute_jaccard_similarity(record_tokens, existing_tokens)
+                if sim >= self.fuzzy_threshold:
+                    record.is_duplicate = True
+                    record.canonical_record_id = canon_id
+                    return record
 
         # New canonical record
         self.seen_hashes[record.text_hash] = record.record_id
         self.seen_tokens[record.record_id] = record_tokens
+        for token in record_tokens:
+            if token not in self.token_to_canon_ids:
+                self.token_to_canon_ids[token] = set()
+            self.token_to_canon_ids[token].add(record.record_id)
+
         record.is_duplicate = False
         record.canonical_record_id = record.record_id
         return record

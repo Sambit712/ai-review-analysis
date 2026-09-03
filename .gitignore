@@ -51,3 +51,4 @@ Thumbs.db
 
 # Large temporary databases if needed (keep schema and test data)
 *.duckdb.tmp*
+data/scratch_charts/

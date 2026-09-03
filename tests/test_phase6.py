@@ -41,26 +41,28 @@ def test_100_sample_gold_standard_benchmark():
 
 
 def test_human_in_the_loop_review_and_override(tmp_path):
-    excel_path = "Docs/nykaa_ai_discovery_database_plus_25_test_statements.xlsx"
+    excel_path = "Docs/nykaa_ai_discovery_database_statements.xlsx"
     db_path = str(tmp_path / "test_human_review.duckdb")
 
     db = FeedbackDatabase(db_path)
-    db.insert_normalized_records(BatchIngestor().ingest_file(excel_path))
-    BehavioralClassifier(groq_client=GroqClient()).process_and_save_records(db)
+    records = BatchIngestor().ingest_file(excel_path)
+    db.insert_normalized_records(records[:35])
+    BehavioralClassifier(groq_client=GroqClient(api_key="")).process_and_save_records(db)
 
     mgr = HumanReviewManager(db)
+    first_id = records[0].record_id
 
-    # 1. Force a low confidence score on record 1 to test queue
+    # 1. Force a low confidence score on first record to test queue
     conn = db.get_connection()
-    conn.execute("UPDATE behavioral_records SET confidence_score = 0.55, status = 'REVIEW_REQUIRED' WHERE record_id = '1'")
+    conn.execute("UPDATE behavioral_records SET confidence_score = 0.55, status = 'REVIEW_REQUIRED' WHERE record_id = ?", [first_id])
     conn.close()
 
     queue = mgr.get_review_queue(min_confidence_threshold=0.70)
-    assert any(r["record_id"] == "1" for r in queue)
+    assert any(r["record_id"] == first_id for r in queue)
 
     # 2. Human reviewer overrides and approves record
     mgr.approve_or_override_classification(
-        record_id="1",
+        record_id=first_id,
         theme="PRICE_VALUE",
         wishlist_intent="GENUINE_PURCHASE_INTENT",
         purchase_blocker=["PRICE"]
@@ -68,7 +70,7 @@ def test_human_in_the_loop_review_and_override(tmp_path):
 
     # 3. Verify record updated to HUMAN_APPROVED with confidence 1.0
     conn = db.get_connection()
-    rec = conn.execute("SELECT status, confidence_score, theme FROM behavioral_records WHERE record_id = '1'").fetchone()
+    rec = conn.execute("SELECT status, confidence_score, theme FROM behavioral_records WHERE record_id = ?", [first_id]).fetchone()
     conn.close()
 
     assert rec[0] == "HUMAN_APPROVED"
@@ -86,19 +88,19 @@ def test_full_pipeline_end_to_end_lifecycle(tmp_path):
 
     # 1. Ingest
     ingestor = BatchIngestor()
-    records = ingestor.ingest_file("Docs/nykaa_ai_discovery_database_plus_25_test_statements.xlsx")
-    inserted = db.insert_normalized_records(records)
-    assert inserted >= 35
+    records = ingestor.ingest_file("Docs/nykaa_ai_discovery_database_statements.xlsx")
+    inserted = db.insert_normalized_records(records[:35])
+    assert inserted == 35
 
     # 2. Classify
-    classifier = BehavioralClassifier(groq_client=GroqClient())
+    classifier = BehavioralClassifier(groq_client=GroqClient(api_key=""))
     classified = classifier.process_and_save_records(db)
-    assert len(classified) >= 35
+    assert len(classified) == 35
 
     # 3. Deterministic Analytics
     agg = AnalyticsAggregator(db)
     overview = agg.get_overview_metrics()
-    assert overview["total_analyzed_records"] >= 35
+    assert overview["total_analyzed_records"] == 35
     themes = agg.get_theme_distribution()
     assert len(themes) > 0
 
@@ -113,6 +115,7 @@ def test_full_pipeline_end_to_end_lifecycle(tmp_path):
     res = query_service.ask("Why do lipstick users abandon their wishlists?", top_k=3)
     assert res["evidence_count"] > 0
     assert len(res["cited_records"]) > 0
+    assert len(res["answer"]) > 100
 
     # 6. Benchmark Evaluation
     evaluator = BenchmarkEvaluator(classifier=classifier)

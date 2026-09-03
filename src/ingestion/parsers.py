@@ -112,9 +112,13 @@ class BatchIngestor:
         df = pd.read_excel(xls, sheet_name=actual_sheet)
 
         raw_records = []
+        seen_ids = set()
         for idx, row in df.iterrows():
             rec = map_row_to_raw_feedback(row.to_dict(), default_source="EXCEL_UPLOAD", fallback_idx=idx + 1)
             if rec.text:  # Filter out blank rows
+                if rec.record_id in seen_ids:
+                    rec.record_id = f"{rec.record_id}_{idx + 1}"
+                seen_ids.add(rec.record_id)
                 raw_records.append(rec)
         return raw_records
 
@@ -122,9 +126,13 @@ class BatchIngestor:
         """Parse records from CSV file."""
         df = pd.read_csv(file_path)
         raw_records = []
+        seen_ids = set()
         for idx, row in df.iterrows():
             rec = map_row_to_raw_feedback(row.to_dict(), default_source="CSV_UPLOAD", fallback_idx=idx + 1)
             if rec.text:
+                if rec.record_id in seen_ids:
+                    rec.record_id = f"{rec.record_id}_{idx + 1}"
+                seen_ids.add(rec.record_id)
                 raw_records.append(rec)
         return raw_records
 
@@ -134,11 +142,15 @@ class BatchIngestor:
             data = json.load(f)
 
         raw_records = []
+        seen_ids = set()
         if isinstance(data, list):
             for idx, item in enumerate(data):
                 if isinstance(item, dict):
                     rec = map_row_to_raw_feedback(item, default_source="JSON_UPLOAD", fallback_idx=idx + 1)
                     if rec.text:
+                        if rec.record_id in seen_ids:
+                            rec.record_id = f"{rec.record_id}_{idx + 1}"
+                        seen_ids.add(rec.record_id)
                         raw_records.append(rec)
         elif isinstance(data, dict):
             items = data.get("records") or data.get("feedback") or [data]
@@ -146,16 +158,23 @@ class BatchIngestor:
                 if isinstance(item, dict):
                     rec = map_row_to_raw_feedback(item, default_source="JSON_UPLOAD", fallback_idx=idx + 1)
                     if rec.text:
+                        if rec.record_id in seen_ids:
+                            rec.record_id = f"{rec.record_id}_{idx + 1}"
+                        seen_ids.add(rec.record_id)
                         raw_records.append(rec)
         return raw_records
 
     def ingest_dict_list(self, records: List[Dict[str, Any]]) -> List[NormalizedRecord]:
         """Ingest directly from a list of record dictionaries."""
         raw_records = []
+        seen_ids = set()
         for idx, item in enumerate(records):
             if isinstance(item, dict):
                 rec = map_row_to_raw_feedback(item, default_source="API_FEEDBACK", fallback_idx=idx + 1)
                 if rec.text:
+                    if rec.record_id in seen_ids:
+                        rec.record_id = f"{rec.record_id}_{idx + 1}"
+                    seen_ids.add(rec.record_id)
                     raw_records.append(rec)
 
         normalized_records = [normalize_raw_record(r) for r in raw_records]

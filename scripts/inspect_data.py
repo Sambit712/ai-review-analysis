@@ -1,6 +1,6 @@
 import pandas as pd
 
-excel_path = r'Docs/nykaa_ai_discovery_database_plus_25_test_statements.xlsx'
+excel_path = r'Docs/nykaa_ai_discovery_database_statements.xlsx'
 
 print('=== TAXONOMY ===')
 df_tax = pd.read_excel(excel_path, sheet_name='Taxonomy')

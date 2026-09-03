@@ -57,7 +57,7 @@ def test_deduplication():
 
 
 def test_excel_ingestion_with_sample_dataset(tmp_path):
-    excel_path = "Docs/nykaa_ai_discovery_database_plus_25_test_statements.xlsx"
+    excel_path = "Docs/nykaa_ai_discovery_database_statements.xlsx"
     assert os.path.exists(excel_path), f"Sample dataset not found at {excel_path}"
 
     db_path = str(tmp_path / "test_feedback.duckdb")
@@ -65,20 +65,19 @@ def test_excel_ingestion_with_sample_dataset(tmp_path):
     ingestor = BatchIngestor()
 
     records = ingestor.ingest_file(excel_path)
-    assert len(records) == 35, f"Expected 35 records, got {len(records)}"
+    assert len(records) == 2916, f"Expected 2916 records, got {len(records)}"
 
     # Check raw text preservation
     first_rec = records[0]
-    assert first_rec.record_id == "1"
     assert "remember the product" in first_rec.raw_text
 
     # Insert into DB
     inserted = db.insert_normalized_records(records)
-    assert inserted == 35
+    assert inserted == 2916
 
     # Check database statistics
     stats = db.get_stats_summary()
-    assert stats["total_raw_records"] == 35
+    assert stats["total_raw_records"] == 2916
     assert stats["total_canonical_records"] > 0
     assert "LIPSTICK" in stats["category_breakdown"]
     assert "FOUNDATION" in stats["category_breakdown"]

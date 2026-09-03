@@ -163,6 +163,7 @@ class FeedbackDatabase:
         with FeedbackDatabase._global_lock:
             conn = self.get_connection()
             try:
+                conn.execute("BEGIN TRANSACTION;")
                 count = 0
                 for r in records:
                     meta_str = json.dumps(r.metadata) if r.metadata else None
@@ -179,7 +180,14 @@ class FeedbackDatabase:
                         meta_str, status_val, r.ingested_at
                     ])
                     count += 1
+                conn.execute("COMMIT;")
                 return count
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
             finally:
                 conn.close()
 
@@ -236,6 +244,7 @@ class FeedbackDatabase:
         with FeedbackDatabase._global_lock:
             conn = self.get_connection()
             try:
+                conn.execute("BEGIN TRANSACTION;")
                 for record in records:
                     status_val = record.status.value if hasattr(record.status, 'value') else str(record.status)
                     conn.execute("""
@@ -267,6 +276,13 @@ class FeedbackDatabase:
 
                     # Also update status in raw_feedback table
                     conn.execute("UPDATE raw_feedback SET status = ? WHERE record_id = ?", [status_val, record.record_id])
+                conn.execute("COMMIT;")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
             finally:
                 conn.close()
 

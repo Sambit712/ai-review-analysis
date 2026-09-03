@@ -80,15 +80,18 @@ class EvidenceSynthesizer:
         # Build citations list
         cited_records = []
         for doc in evidence_docs:
-            blockers_arr = doc.get("purchase_blocker")
-            blockers_clean = [str(b) for b in blockers_arr] if blockers_arr is not None else []
+            blockers = doc.get("purchase_blocker")
+            blockers_clean = [str(b) for b in blockers] if isinstance(blockers, list) else []
             cited_records.append({
                 "record_id": doc.get("record_id"),
                 "category": doc.get("product_category"),
+                "product_category": doc.get("product_category"),
                 "theme": doc.get("theme"),
                 "intent": doc.get("wishlist_intent"),
                 "blockers": blockers_clean,
                 "quote": doc.get("verbatim_evidence") or doc.get("raw_text"),
+                "verbatim_evidence": doc.get("verbatim_evidence") or doc.get("raw_text"),
+                "raw_text": doc.get("raw_text") or doc.get("text", ""),
                 "source": doc.get("source"),
             })
 
